@@ -10,10 +10,20 @@ use Socket qw(getnameinfo);
 use JSON::PP;
 use Carp;
 
+use local::lib 'local';
+use lib 'lib';
+use Net::EmptyPort qw/empty_port/;
+
 my $queue = [];
 
-my $data_length = 1024;
-my $server = IO::Socket::IP->new(LocalPort => 12345, Listen => 1) or
+# my $port = empty_port();
+my $port = 13000;
+my $data_limit = 1024;
+
+say "queue port: $port";
+say "data limit: $data_limit";
+
+my $server = IO::Socket::IP->new(LocalPort => $port, Listen => 1) or
     die "Cannot listen - $@";
 
 while (my $socket = _accept($server)) {
@@ -34,13 +44,14 @@ while (my $socket = _accept($server)) {
     say "The peer is connected from $hostname";
 
     my $data;
-    $socket->recv($data, $data_length + 1);
+    $socket->recv($data, $data_limit + 1);
     eval { _validate_data($data) }; $catch->($@) if $@;
 
     my $message = _get_message($data);
-    eval { decode_json($message) }; $catch->($@) if $@;
+    my $payload;
+    eval { $payload = decode_json($message) }; $catch->($@) if $@;
 
-    push @$queue, $message;
+    _enqueue($payload);
 
     $socket->send('OK');
     $socket->close();
@@ -50,7 +61,7 @@ $server->close();
 
 sub _validate_data {
     my $data = shift;
-    confess 'too long data' if length $data > $data_length;
+    confess 'too long data' if length $data > $data_limit;
     confess 'invalid format data' if $data !~ /\n\n$/;
 }
 
@@ -63,4 +74,13 @@ sub _get_message {
     my $data = shift;
     $data =~ s/\n\n$//;
     return $data;
+}
+
+sub _enqueue {
+    my $payload = shift;
+    push @$queue, $payload;
+}
+
+sub _dequeue {
+    return shift @$queue;
 }

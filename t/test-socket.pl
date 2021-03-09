@@ -20,13 +20,12 @@ sub make_body {
 }
 
 while (1) {
-
     my $client = IO::Socket->new(
         Domain => AF_INET,
         Type => SOCK_STREAM,
         proto => 'tcp',
-        PeerPort => 12345,
-        PeerHost => '0.0.0.0',
+        PeerPort => 13000,
+        PeerHost => '127.0.0.1',
     ) || die "Can't open socket: $@";
 
     my $message = to_message(make_body($i++));
